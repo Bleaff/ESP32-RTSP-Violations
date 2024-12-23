@@ -3,36 +3,31 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#undef HTTP_GET
+#undef HTTP_POST
+#undef HTTP_DELETE
 #include <ESPAsyncWebServer.h>
 #include "Settings.hpp"
 
-class InitializeSettingsServer
-{
+class InitializeSettingsServer {
 public:
-  int status = 0;
-  int wifi_status = 0;
-  const char *ssid;
-  const char *password;
-  Settings settings;
-
-
-  // Конструктор с семафором
-  InitializeSettingsServer(int port, const char *ssid, const char *password, SemaphoreHandle_t wifiSemaphore);
-  InitializeSettingsServer(const InitializeSettingsServer &settings);
-  void start(void);
+    InitializeSettingsServer(int port, const char *ssid, const char *password, SemaphoreHandle_t wifiSemaphore);
+    void start(void);
 
 private:
-  int port = 0;
-  TaskHandle_t Task1;
-  AsyncWebServer server;
+    int port;
+    const char *ssid;
+    const char *password;
+    TaskHandle_t Task1;
+    AsyncWebServer server;
+    SemaphoreHandle_t wifiSemaphore;
+    Settings settings;
 
-  // Семафор для синхронизации WiFi
-  SemaphoreHandle_t wifiSemaphore;
-
-  void start_monitor_thread(void);
-  static void monitor_network_connection(void *params);
-  String generate_html_page();
-  String get_wifi_option();
+    void handleConnect(AsyncWebServerRequest *request);
+    void start_monitor_thread(void);
+    static void monitor_network_connection(void *params);
+    String generate_html_page();
+    String get_wifi_option();
 };
 
 #endif

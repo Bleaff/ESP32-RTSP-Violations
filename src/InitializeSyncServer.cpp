@@ -9,11 +9,11 @@ InitializeSyncServer::InitializeSyncServer(int port, const char *ssid, const cha
 }
 
 void InitializeSyncServer::start(void) {
-    // Определяем обработчики запросов
-    server.on("/", [this]() { handleRoot(); });
+    // Define request handlers
+    server.on("/", HTTP_GET, [this]() { handleRoot(); });
     server.on("/connect", HTTP_POST, [this]() { handleConnect(); });
 
-    // Запускаем сервер
+    // Start the server
     server.begin();
     Serial.println("Web server started!");
 }
@@ -24,27 +24,56 @@ void InitializeSyncServer::handleRoot() {
 }
 
 void InitializeSyncServer::handleConnect() {
+    Serial.println("Received POST request to /connect");
+
+    // Отображаем все аргументы для отладки
+    for (int i = 0; i < server.args(); i++) {
+        Serial.printf("Arg %s: %s\n", server.argName(i).c_str(), server.arg(i).c_str());
+    }
+
+    // Проверяем наличие аргументов
     if (server.hasArg("ssid")) {
-        settings.set_ssid(server.arg("ssid").c_str());
+        String ssid = server.arg("ssid");
+        settings.set_ssid(ssid.c_str()); // Убедитесь, что метод set_ssid выделяет память корректно
         status++;
     }
     if (server.hasArg("password")) {
-        settings.set_password(server.arg("password").c_str());
+        String password = server.arg("password");
+        settings.set_password(password.c_str()); // Убедитесь, что метод set_password выделяет память корректно
         status++;
     }
+
+    // Проверяем, установлены ли оба параметра
     if (status == 2) {
         settings.is_set = 1;
-        xSemaphoreGive(wifiSemaphore); // Освобождаем семафор
         server.send(200, "text/html", "<h1>WiFi credentials received!</h1>");
-        Serial.print("Received SSID: ");
-        Serial.println(settings.ssid);
-        Serial.print("Received Password: ");
-        Serial.println(settings.password);
-        server.stop()
+        Serial.printf("Received SSID: %s\n", settings.ssid);
+        Serial.printf("Received Password: %s\n", settings.password);
+
+        server.stop();
+        WiFi.disconnect();
+        WiFi.begin(settings.ssid, settings.password);
+
+        unsigned long startAttemptTime = millis();
+        const unsigned long timeout = 10000; // 10 seconds
+
+        while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {
+            delay(500);
+            Serial.print(".");
+        }
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\nWiFi connected successfully!");
+            Serial.println("IP Address: " + WiFi.localIP().toString());
+            xSemaphoreGive(wifiSemaphore);
+        } else {
+            Serial.println("\nFailed to connect to WiFi.");
+        }
     } else {
         server.send(400, "text/html", "<h1>Missing SSID or Password!</h1>");
     }
 }
+
+
 
 String InitializeSyncServer::generate_html_page() {
     String wifiOptions = get_wifi_option();

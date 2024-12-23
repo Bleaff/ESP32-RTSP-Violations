@@ -4,8 +4,8 @@
 class Settings
 {
 public:
-	const char *ssid;
-	const char *password;
+    char* ssid = nullptr;
+    char* password = nullptr;
   	int is_set = 0;
 	Settings(const Settings &settings);
 	Settings(const char *ssid, const char *password);
